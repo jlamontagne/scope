@@ -1,0 +1,19 @@
+{
+  "name": "scope",
+  "version": "0.0.1",
+  "description": "network scope",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Josh Lamontagne",
+  "license": "MIT",
+  "dependencies": {
+    "good": "^7.0.2",
+    "good-console": "^6.1.2",
+    "good-squeeze": "^5.0.0",
+    "h2o2": "^5.2.0",
+    "hapi": "^15.1.1",
+    "wreck": "^10.0.0"
+  }
+}
