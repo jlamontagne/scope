@@ -1,64 +1,131 @@
 'use strict';
 
-const base = 'https://localhost:7777';
-
+const Boom = require('boom');
 const Hapi = require('hapi');
-const fs = require('fs');
-const good = require('good');
-const h2o2 = require('h2o2');
+const inert = require('inert');
+
+const Tap = require('./tap');
+
+const SCOPE_ADDR = process.env.SCOPE_ADDR || '127.1.1.1';
 const server = new Hapi.Server();
 
+let lastId = 0;
+
+server.app.taps = Object.create(null);
+
 server.connection({
-  port: 7778,
-  tls: {
-    key: fs.readFileSync('.key.pem'),
-    cert: fs.readFileSync('.cert.pem'),
-  },
+  address: SCOPE_ADDR,
+  port: 8080,
+  labels: 'scope',
 });
 
-server.register({
-  register: h2o2,
-}).then(() => {
-  return server.register({
-    register: good,
-    options: {
-      reporters: {
-        toConsole: [{
-          module: 'good-squeeze',
-          name: 'Squeeze',
-          args: [{
-            log: '*',
-            response: '*',
-          }]
-        }, {
-          module: 'good-console'
-        }, 'stdout']
-      }
-    }
+function removeTap(id) {
+  const tap = server.app.taps[id];
+  return tap.server.stop().then(() => {
+    delete server.app.taps[id];
   });
-}).then(() => {
+}
+
+module.exports = server.register(inert)
+.then(() => {
   server.route({
-    method: '*',
-    path: '/{path*}',
-    handler: {
-      proxy: {
-        passThrough: true,
-        rejectUnauthorized: false,
-        mapUri: (request, callback) => {
-          const redirect = `${base}/${request.params.path}${request.url.search}`;
-          callback(null, redirect);
-        },
-      },
+    method: 'GET',
+    path: '/',
+    handler: (request, reply) => {
+      reply.file('public/index.html');
     },
   });
 
-  server.start(err => {
-    if (err) {
-      throw err;
-    }
-
-    console.log(`Server running at: ${server.info.uri}`);
+  server.route({
+    method: 'GET',
+    path: '/taps',
+    handler: (request, reply) => reply(Object.keys(server.app.taps).map(key =>
+      server.app.taps[key].info
+    )),
   });
-}).catch(err => {
-  console.log(err);
+
+  server.route({
+    method: 'GET',
+    path: '/tap/{id}',
+    handler: (request, reply) => {
+      const tap = server.app.taps[request.params.id];
+      if (!tap) {
+        return reply(Boom.notFound('tap'));
+      }
+
+      return reply(tap.info);
+    },
+  });
+
+  server.route({
+    method: 'GET',
+    path: '/tap/{id}/routes',
+    handler: (request, reply) => {
+      const tap = server.app.taps[request.params.id];
+      if (!tap) {
+        return reply(Boom.notFound('tap'));
+      }
+
+      return reply(Object.keys(tap.routes).map(key => tap.routes[key].info));
+    },
+  });
+
+  server.route({
+    method: 'POST',
+    path: '/tap/{id}/pinned',
+    handler: (request, reply) => {
+      const opts = request.payload;
+      const tap = server.app.taps[request.params.id];
+      if (!tap) {
+        return reply(Boom.notFound('tap'));
+      }
+
+      tap.pinResponse(opts.method, opts.path, opts.response);
+
+      return reply();
+    },
+  });
+
+  server.route({
+    method: 'DELETE',
+    path: '/tap/{id}/pinned',
+    handler: (request, reply) => {
+      const opts = request.payload;
+      const tap = server.app.taps[request.params.id];
+      if (!tap) {
+        return reply(Boom.notFound('tap'));
+      }
+
+      tap.unpinResponse(opts.method, opts.path);
+
+      return reply();
+    },
+  });
+
+  server.route({
+    method: 'POST',
+    path: '/tap',
+    handler: (request, reply) => {
+      const id = ++lastId; // eslint-disable-line no-plusplus
+      const opts = request.payload;
+      const tap = new Tap(id, opts.address, opts.port, opts.label);
+
+      tap.start().then(() => {
+        server.app.taps[id] = tap;
+        reply(tap.info);
+      }, err => reply(Boom.badRequest(err)));
+    },
+  });
+
+  server.route({
+    method: 'DELETE',
+    path: '/tap/{id}',
+    handler: (request, reply) => {
+      removeTap(request.params.id)
+      .then(() => reply())
+      .catch(err => reply(Boom.badRequest(err)));
+    },
+  });
+
+  return server;
 });
