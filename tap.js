@@ -159,7 +159,9 @@ class Tap {
           },
         },
       });
-    }).then(() => this);
+    })
+    .then(() => this.server.start())
+    .then(() => this);
   }
 }
 
