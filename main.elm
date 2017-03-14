@@ -12,78 +12,49 @@ main =
     { init = init
     , view = view
     , update = update
-    , subscriptions = subscriptions
+    , subscriptions = \_ -> Sub.none
     }
 
 -- MODEL
 type alias Model =
   { endpoints : (List String)
+  , tapName : String
+  }
+
+emptyModel : Model
+emptyModel =
+  { endpoints = []
+  , tapName = ""
   }
 
 init : (Model, Cmd Msg)
 init =
-  ( Model []
-  , getEndpoints "foo"
+  ( emptyModel ! []
   )
-
--- model : Model
--- model =
---   { endpoints = [] }
 
 -- UPDATE
 type Msg
-  = FetchSucceed (List String)
-  | FetchFail Http.Error
-  | Pin String
-  | PinFail Http.Error
-  | PinOk String
+  = NoOp
+  | UpdateTapName String
+  | CreateTap
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
-    FetchSucceed newEndpoints ->
-      -- ({ model | endpoints = newEndpoints }, Cmd.none)
-      (Model newEndpoints, Cmd.none)
-    FetchFail _ ->
-      (model, Cmd.none)
-    Pin endpoint ->
-      (model, pinEndpoint endpoint)
-    PinOk _ ->
-      (model, Cmd.none)
-    PinFail _ ->
-      (model, Cmd.none)
+    NoOp ->
+      model ! []
+    UpdateTapName name ->
+      { model | tapName = name }
+        ! []
+    CreateTap ->
+      model ! []
 
 -- VIEW
 view : Model -> Html Msg
 view model =
-  div []
-    (List.map (\e -> div []
-      [ button [ onClick (Pin e) ] [ text "PIN" ]
-      , text (toString e)
-      ]) model.endpoints)
-
--- SUBSCRIPTIONS
-subscriptions : Model -> Sub Msg
-subscriptions model =
-  Sub.none
-
--- HTTP
-getEndpoints : String -> Cmd Msg
-getEndpoints foo =
-  let
-    url =
-      "/taps"
-  in
-     Task.perform FetchFail FetchSucceed (Http.get decodeEndpoints url)
-
-decodeEndpoints : Json.Decoder (List String)
-decodeEndpoints =
-  Json.list Json.string
-
-pinEndpoint : String -> Cmd Msg
-pinEndpoint endpoint =
-  let
-    url =
-      "/pin"
-  in
-     Task.perform PinFail PinOk (Http.post (Json.string) url (Http.string endpoint))
+  div
+    []
+    [ h1 [] [ text "scope" ]
+    , input [ placeholder "New tap name", onInput UpdateTapName ] []
+    , button [ onClick CreateTap ] [ text "Create Tap" ]
+    ]
