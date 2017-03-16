@@ -113,6 +113,9 @@ class Tap {
         path: '/{path*}',
         config: {
           pre: [(request, reply) => {
+            // FIXME support root path
+            // console.log(request);
+            // console.log(`method: ${request.method}, path: ${request.params.path}`);
             let route = this.getRoute(request.method, request.params.path);
             if (!route) {
               route = this.addRoute(request.method, request.params.path);
