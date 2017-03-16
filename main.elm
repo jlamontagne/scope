@@ -27,6 +27,7 @@ type alias Model =
   { endpoints : (List String)
   , tapName : String
   , tap : Tap
+  , wat : String
   }
 
 emptyModel : Model
@@ -34,6 +35,7 @@ emptyModel =
   { endpoints = []
   , tapName = ""
   , tap = { address = "", id = 0, label = "", portNumber = 0 }
+  , wat = ""
   }
 
 init : (Model, Cmd Msg)
@@ -61,8 +63,18 @@ update msg model =
     TapCreated (Ok tap)->
       { model | tap = tap }
         ! []
-    TapCreated (Err _) ->
-      model ! []
+    TapCreated (Err err) ->
+      case err of
+        Http.BadUrl _ ->
+          model ! []
+        Http.Timeout ->
+          model ! []
+        Http.NetworkError ->
+          model ! []
+        Http.BadStatus aa ->
+          { model | wat = aa.status.message } ! []
+        Http.BadPayload first bb ->
+          model ! []
 
 createTap : String -> Cmd Msg
 createTap name =
@@ -101,4 +113,5 @@ view model =
     , text (toString model.tap.portNumber)
     , text (toString model.tap.id)
     , text model.tap.label
+    , text model.wat
     ]
