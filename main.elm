@@ -57,14 +57,12 @@ update msg model =
 createTap : String -> Cmd Msg
 createTap name =
   let
-    url = "/tap"
-    thing = Encode.object
+    tap = Http.jsonBody <| Encode.object
       [ ("address", Encode.string name)
       , ("port", Encode.int 8444)
       , ("label", Encode.string "yeah")
       ]
-    derp = Http.jsonBody thing
-    request = Http.post url derp decodeTheThing
+    request = Http.post "/tap" tap decodeTheThing
   in
     Http.send TapCreated request
 
