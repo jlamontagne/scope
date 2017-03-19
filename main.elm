@@ -7,6 +7,7 @@ import Json.Encode as Encode
 import List
 import Task
 
+
 main =
     Html.program
       { init = init
@@ -15,6 +16,7 @@ main =
       , subscriptions = \_ -> Sub.none
       }
 
+
 type alias Tap =
     { address : String
     , id : Maybe Int
@@ -22,12 +24,14 @@ type alias Tap =
     , portNumber : Int
     }
 
+
 type alias Model =
     { endpoints : (List String)
     , newTap : Tap
     , tap : Tap
     , wat : String
     }
+
 
 emptyModel : Model
 emptyModel =
@@ -37,9 +41,11 @@ emptyModel =
     , wat = ""
     }
 
+
 init : (Model, Cmd Msg)
 init =
     emptyModel ! []
+
 
 type Msg
     = NoOp
@@ -49,32 +55,6 @@ type Msg
     | CreateTap
     | TapCreated (Result Http.Error Tap)
 
-updateTap : Maybe String -> Maybe String -> Maybe String -> Tap -> Tap
-updateTap label address portNumber tap =
-    { tap
-        | label =
-            case label of
-                Nothing ->
-                    tap.label
-
-                Just a ->
-                    a
-
-        , address =
-            case address of
-                Nothing ->
-                    tap.address
-
-                Just a ->
-                    a
-
-        , portNumber =
-            case portNumber of
-                Nothing ->
-                    tap.portNumber
-                Just a ->
-                    String.toInt a |> Result.withDefault -1
-    }
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -119,6 +99,35 @@ update msg model =
                 Http.BadPayload first bb ->
                     model ! []
 
+
+updateTap : Maybe String -> Maybe String -> Maybe String -> Tap -> Tap
+updateTap label address portNumber tap =
+    { tap
+        | label =
+            case label of
+                Nothing ->
+                    tap.label
+
+                Just a ->
+                    a
+
+        , address =
+            case address of
+                Nothing ->
+                    tap.address
+
+                Just a ->
+                    a
+
+        , portNumber =
+            case portNumber of
+                Nothing ->
+                    tap.portNumber
+                Just a ->
+                    String.toInt a |> Result.withDefault -1
+    }
+
+
 createTap : Tap -> Cmd Msg
 createTap tap =
     let
@@ -134,9 +143,11 @@ createTap tap =
     in
         Http.send TapCreated request
 
+
 decodeTheThing : Decode.Decoder String
 decodeTheThing =
     Decode.at ["derp"] Decode.string
+
 
 decodeTap : Decode.Decoder Tap
 decodeTap =
@@ -145,6 +156,7 @@ decodeTap =
         (Decode.field "id" (Decode.nullable Decode.int))
         (Decode.field "label" Decode.string)
         (Decode.field "port" Decode.int)
+
 
 view : Model -> Html Msg
 view model =
