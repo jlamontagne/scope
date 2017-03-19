@@ -47,59 +47,6 @@ init =
     emptyModel ! []
 
 
-type Msg
-    = NoOp
-    | NewTapLabel String
-    | NewTapAddress String
-    | NewTapPort String
-    | CreateTap
-    | TapCreated (Result Http.Error Tap)
-
-
-update : Msg -> Model -> (Model, Cmd Msg)
-update msg model =
-    case msg of
-        NoOp ->
-            model ! []
-
-        NewTapLabel label ->
-            { model | newTap = updateTap (Just label) Nothing Nothing model.newTap }
-                ! []
-
-        NewTapAddress address ->
-            { model | newTap = updateTap Nothing (Just address) Nothing model.newTap }
-                ! []
-
-        NewTapPort portNumber ->
-            { model | newTap = updateTap Nothing Nothing (Just portNumber) model.newTap }
-                ! []
-
-        CreateTap ->
-            (model, createTap model.newTap)
-
-        TapCreated (Ok tap) ->
-            { model | tap = tap }
-                ! []
-
-        TapCreated (Err err) ->
-            case err of
-                Http.BadUrl _ ->
-                    model ! []
-
-                Http.Timeout ->
-                    model ! []
-
-                Http.NetworkError ->
-                    model ! []
-
-                Http.BadStatus aa ->
-                    { model | wat = aa.status.message }
-                        ! []
-
-                Http.BadPayload first bb ->
-                    model ! []
-
-
 updateTap : Maybe String -> Maybe String -> Maybe String -> Tap -> Tap
 updateTap label address portNumber tap =
     { tap
@@ -158,18 +105,76 @@ decodeTap =
         (Decode.field "port" Decode.int)
 
 
+type Msg
+    = NoOp
+    | NewTapLabel String
+    | NewTapAddress String
+    | NewTapPort String
+    | CreateTap
+    | TapCreated (Result Http.Error Tap)
+
+
+update : Msg -> Model -> (Model, Cmd Msg)
+update msg model =
+    case msg of
+        NoOp ->
+            model ! []
+
+        NewTapLabel label ->
+            { model | newTap = updateTap (Just label) Nothing Nothing model.newTap }
+                ! []
+
+        NewTapAddress address ->
+            { model | newTap = updateTap Nothing (Just address) Nothing model.newTap }
+                ! []
+
+        NewTapPort portNumber ->
+            { model | newTap = updateTap Nothing Nothing (Just portNumber) model.newTap }
+                ! []
+
+        CreateTap ->
+            (model, createTap model.newTap)
+
+        TapCreated (Ok tap) ->
+            { model | tap = tap }
+                ! []
+
+        TapCreated (Err err) ->
+            case err of
+                Http.BadUrl _ ->
+                    model ! []
+
+                Http.Timeout ->
+                    model ! []
+
+                Http.NetworkError ->
+                    model ! []
+
+                Http.BadStatus aa ->
+                    { model | wat = aa.status.message }
+                        ! []
+
+                Http.BadPayload first bb ->
+                    model ! []
+
+
 view : Model -> Html Msg
 view model =
     div
         []
         [ h1 [] [ text "scope" ]
-        , input [ placeholder "Label", onInput NewTapLabel ] []
+        , viewCreateTap model
+        ]
+
+viewCreateTap : Model -> Html Msg
+viewCreateTap model =
+    Html.form
+        [ onSubmit CreateTap ]
+        [ input [ placeholder "Label", onInput NewTapLabel ] []
         , input [ placeholder "URL", onInput NewTapAddress ] []
         , input [ placeholder "Port", onInput NewTapPort ] []
-        , button [ onClick CreateTap ] [ text "Create Tap" ]
-        , text model.tap.address
-        , text (toString model.tap.portNumber)
-        , text (toString model.tap.id)
-        , text model.tap.label
-        , text model.wat
+        , button [] [ text "Create Tap" ]
+        , div
+            []
+            [ text model.wat ]
         ]
