@@ -19,18 +19,19 @@ main =
 
 type alias Tap =
     { address : String
-    , id : Maybe Int
+    , id : Int
     , label : String
     , portNumber : Int
     }
 
 
 type alias Model =
-    { endpoints : (List String)
+    { endpoints : List String
+    , taps : List Tap
     , newTapLabel : Maybe String
     , newTapAddress : Maybe String
     , newTapPort : Maybe Int
-    , tap : Tap
+    , newTap : Maybe Tap
     , error : Maybe String
     }
 
@@ -38,10 +39,11 @@ type alias Model =
 emptyModel : Model
 emptyModel =
     { endpoints = []
+    , taps = []
     , newTapLabel = Nothing
     , newTapAddress = Nothing
     , newTapPort = Nothing
-    , tap = { address = "", id = Nothing, label = "", portNumber = 0 }
+    , newTap = Nothing
     , error = Nothing
     }
 
@@ -60,10 +62,21 @@ decodeTap : Decode.Decoder Tap
 decodeTap =
     Decode.map4 Tap
         (Decode.field "address" Decode.string)
-        (Decode.field "id" (Decode.nullable Decode.int))
+        (Decode.field "id" Decode.int)
         (Decode.field "label" Decode.string)
         (Decode.field "port" Decode.int)
 
+delete : String -> Http.Request ()
+delete url =
+    Http.request
+        { method = "DELETE"
+        , headers = []
+        , url = url
+        , body = Http.emptyBody
+        , expect = Http.expectStringResponse (\_ -> Ok ())
+        , timeout = Nothing
+        , withCredentials = False
+        }
 
 type Msg
     = NoOp
@@ -72,6 +85,8 @@ type Msg
     | NewTapPort String
     | CreateTap
     | TapCreated (Result Http.Error Tap)
+    | RemoveTap Tap
+    | TapRemoved Tap (Result Http.Error ())
 
 
 update : Msg -> Model -> (Model, Cmd Msg)
@@ -124,7 +139,11 @@ update msg model =
 
         TapCreated (Ok tap) ->
             { model
-                | tap = tap
+                | newTap = Just tap
+                , newTapLabel = Nothing
+                , newTapAddress = Nothing
+                , newTapPort = Nothing
+                , taps = tap :: model.taps
                 , error = Nothing
             }
                 ! []
@@ -147,6 +166,22 @@ update msg model =
                 Http.BadPayload first bb ->
                     model ! []
 
+        RemoveTap tap ->
+            let
+                request =
+                    delete ("/tap/" ++ (toString tap.id))
+            in
+               (model, Http.send (TapRemoved tap) request)
+
+        TapRemoved remTap (Ok _) ->
+            { model
+                | taps = List.filter (\tap -> tap.id /= remTap.id) model.taps
+            }
+                ! []
+
+        TapRemoved _ (Err _) ->
+            model ! []
+
 
 view : Model -> Html Msg
 view model =
@@ -154,6 +189,33 @@ view model =
         []
         [ h1 [] [ text "scope" ]
         , viewCreateTap model
+        , viewTaps model
+        ]
+
+viewTapRow : Tap -> Html Msg
+viewTapRow tap =
+    tr
+        []
+        [ td [] [ text tap.address ]
+        , td [] [ text <| toString tap.portNumber ]
+        , td [] [ text tap.label ]
+        , td [] [ button [ onClick (RemoveTap tap) ] [ text "Remove Tap" ] ]
+        ]
+
+viewTaps : Model -> Html Msg
+viewTaps model =
+    table
+        []
+        [ thead
+            []
+            [ th [] [ text "Proxy address" ]
+            , th [] [ text "Scope port" ]
+            , th [] [ text "Label" ]
+            , th [] [ text "Actions" ]
+            ]
+        , tbody
+            []
+            (List.map viewTapRow model.taps)
         ]
 
 viewCreateTap : Model -> Html Msg
