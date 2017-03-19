@@ -27,68 +27,28 @@ type alias Tap =
 
 type alias Model =
     { endpoints : (List String)
-    , newTap : Tap
+    , newTapLabel : Maybe String
+    , newTapAddress : Maybe String
+    , newTapPort : Maybe Int
     , tap : Tap
-    , wat : String
+    , error : Maybe String
     }
 
 
 emptyModel : Model
 emptyModel =
     { endpoints = []
-    , newTap = { address = "", id = Nothing, label = "", portNumber = 0 }
+    , newTapLabel = Nothing
+    , newTapAddress = Nothing
+    , newTapPort = Nothing
     , tap = { address = "", id = Nothing, label = "", portNumber = 0 }
-    , wat = ""
+    , error = Nothing
     }
 
 
 init : (Model, Cmd Msg)
 init =
     emptyModel ! []
-
-
-updateTap : Maybe String -> Maybe String -> Maybe String -> Tap -> Tap
-updateTap label address portNumber tap =
-    { tap
-        | label =
-            case label of
-                Nothing ->
-                    tap.label
-
-                Just a ->
-                    a
-
-        , address =
-            case address of
-                Nothing ->
-                    tap.address
-
-                Just a ->
-                    a
-
-        , portNumber =
-            case portNumber of
-                Nothing ->
-                    tap.portNumber
-                Just a ->
-                    String.toInt a |> Result.withDefault -1
-    }
-
-
-createTap : Tap -> Cmd Msg
-createTap tap =
-    let
-        body =
-            Http.jsonBody <| Encode.object
-                [ ("address", Encode.string tap.address)
-                , ("port", Encode.int tap.portNumber)
-                , ("label", Encode.string tap.label)
-                ]
-
-        request =
-            Http.post "/tap" body decodeTap
-    in
-        Http.send TapCreated request
 
 
 decodeTheThing : Decode.Decoder String
@@ -121,22 +81,52 @@ update msg model =
             model ! []
 
         NewTapLabel label ->
-            { model | newTap = updateTap (Just label) Nothing Nothing model.newTap }
+            { model | newTapLabel = Just label }
                 ! []
 
         NewTapAddress address ->
-            { model | newTap = updateTap Nothing (Just address) Nothing model.newTap }
+            { model | newTapAddress = Just address }
                 ! []
 
-        NewTapPort portNumber ->
-            { model | newTap = updateTap Nothing Nothing (Just portNumber) model.newTap }
+        NewTapPort portNumberStr ->
+            { model | newTapPort =
+                String.toInt portNumberStr
+                |> Result.map Just
+                |> Result.withDefault Nothing
+            }
                 ! []
 
         CreateTap ->
-            (model, createTap model.newTap)
+            let
+                address =
+                    Maybe.map Encode.string model.newTapAddress
+                        |> Maybe.withDefault Encode.null
+
+                portNumber =
+                    Maybe.map Encode.int model.newTapPort
+                        |> Maybe.withDefault Encode.null
+
+                label =
+                    Maybe.map Encode.string model.newTapLabel
+                        |> Maybe.withDefault Encode.null
+
+                body =
+                    Http.jsonBody <| Encode.object
+                        [ ("address", address)
+                        , ("port", portNumber)
+                        , ("label", label)
+                        ]
+
+                request =
+                    Http.post "/tap" body decodeTap
+            in
+                (model, Http.send TapCreated request)
 
         TapCreated (Ok tap) ->
-            { model | tap = tap }
+            { model
+                | tap = tap
+                , error = Nothing
+            }
                 ! []
 
         TapCreated (Err err) ->
@@ -150,8 +140,8 @@ update msg model =
                 Http.NetworkError ->
                     model ! []
 
-                Http.BadStatus aa ->
-                    { model | wat = aa.status.message }
+                Http.BadStatus response ->
+                    { model | error = Just response.status.message }
                         ! []
 
                 Http.BadPayload first bb ->
@@ -168,13 +158,20 @@ view model =
 
 viewCreateTap : Model -> Html Msg
 viewCreateTap model =
-    Html.form
-        [ onSubmit CreateTap ]
-        [ input [ placeholder "Label", onInput NewTapLabel ] []
-        , input [ placeholder "URL", onInput NewTapAddress ] []
-        , input [ placeholder "Port", onInput NewTapPort ] []
-        , button [] [ text "Create Tap" ]
-        , div
-            []
-            [ text model.wat ]
-        ]
+    let
+        error =
+            case model.error of
+                Nothing ->
+                    div [] []
+
+                Just message ->
+                    div [] [ text message ]
+    in
+        Html.form
+            [ onSubmit CreateTap ]
+            [ input [ placeholder "Label", onInput NewTapLabel ] []
+            , input [ placeholder "URL", onInput NewTapAddress ] []
+            , input [ placeholder "Port", onInput NewTapPort ] []
+            , button [] [ text "Create Tap" ]
+            , error
+            ]
