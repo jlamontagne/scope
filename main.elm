@@ -17,7 +17,7 @@ main =
 
 type alias Tap =
   { address : String
-  , id : Int
+  , id : Maybe Int
   , label : String
   , portNumber : Int
   }
@@ -25,7 +25,7 @@ type alias Tap =
 -- MODEL
 type alias Model =
   { endpoints : (List String)
-  , tapName : String
+  , newTap : Tap
   , tap : Tap
   , wat : String
   }
@@ -33,8 +33,8 @@ type alias Model =
 emptyModel : Model
 emptyModel =
   { endpoints = []
-  , tapName = ""
-  , tap = { address = "", id = 0, label = "", portNumber = 0 }
+  , newTap = { address = "", id = Nothing, label = "", portNumber = 0 }
+  , tap = { address = "", id = Nothing, label = "", portNumber = 0 }
   , wat = ""
   }
 
@@ -46,23 +46,39 @@ init =
 -- UPDATE
 type Msg
   = NoOp
-  | UpdateTapName String
+  | NewTapLabel String
+  | NewTapAddress String
+  | NewTapPort String
   | CreateTap
   | TapCreated (Result Http.Error Tap)
+
+updateTapLabel : String -> Tap -> Tap
+updateTapLabel label tap =
+  { tap | label = label }
+
+updateTapAddress : String -> Tap -> Tap
+updateTapAddress address tap =
+  { tap | address = address }
+
+updateTapPort : String -> Tap -> Tap
+updateTapPort portNumber tap =
+  { tap | portNumber = String.toInt portNumber |> Result.withDefault -1 }
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
     NoOp ->
       model ! []
-    UpdateTapName name ->
-      { model | tapName = name }
-        ! []
+    NewTapLabel label ->
+      { model | newTap = updateTapLabel label model.newTap } ! []
+    NewTapAddress address ->
+      { model | newTap = updateTapAddress address model.newTap } ! []
+    NewTapPort portNumber ->
+      { model | newTap = updateTapPort portNumber model.newTap } ! []
     CreateTap ->
-      (model, createTap model.tapName)
+      (model, createTap model.newTap)
     TapCreated (Ok tap)->
-      { model | tap = tap }
-        ! []
+      { model | tap = tap } ! []
     TapCreated (Err err) ->
       case err of
         Http.BadUrl _ ->
@@ -76,15 +92,15 @@ update msg model =
         Http.BadPayload first bb ->
           model ! []
 
-createTap : String -> Cmd Msg
-createTap name =
+createTap : Tap -> Cmd Msg
+createTap tap =
   let
-    tap = Http.jsonBody <| Encode.object
-      [ ("address", Encode.string name)
-      , ("port", Encode.int 8444)
-      , ("label", Encode.string "yeah")
+    body = Http.jsonBody <| Encode.object
+      [ ("address", Encode.string tap.address)
+      , ("port", Encode.int tap.portNumber)
+      , ("label", Encode.string tap.label)
       ]
-    request = Http.post "/tap" tap decodeTap
+    request = Http.post "/tap" body decodeTap
   in
     Http.send TapCreated request
 
@@ -97,7 +113,7 @@ decodeTap : Decode.Decoder Tap
 decodeTap =
   Decode.map4 Tap
     (Decode.field "address" Decode.string)
-    (Decode.field "id" Decode.int)
+    (Decode.field "id" (Decode.nullable Decode.int))
     (Decode.field "label" Decode.string)
     (Decode.field "port" Decode.int)
 
@@ -107,7 +123,9 @@ view model =
   div
     []
     [ h1 [] [ text "scope" ]
-    , input [ placeholder "New tap name", onInput UpdateTapName ] []
+    , input [ placeholder "Label", onInput NewTapLabel ] []
+    , input [ placeholder "URL", onInput NewTapAddress ] []
+    , input [ placeholder "Port", onInput NewTapPort ] []
     , button [ onClick CreateTap ] [ text "Create Tap" ]
     , text model.tap.address
     , text (toString model.tap.portNumber)
