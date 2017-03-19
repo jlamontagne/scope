@@ -52,17 +52,19 @@ type Msg
   | CreateTap
   | TapCreated (Result Http.Error Tap)
 
-updateTapLabel : String -> Tap -> Tap
-updateTapLabel label tap =
-  { tap | label = label }
-
-updateTapAddress : String -> Tap -> Tap
-updateTapAddress address tap =
-  { tap | address = address }
-
-updateTapPort : String -> Tap -> Tap
-updateTapPort portNumber tap =
-  { tap | portNumber = String.toInt portNumber |> Result.withDefault -1 }
+updateTap : Maybe String -> Maybe String -> Maybe String -> Tap -> Tap
+updateTap label address portNumber tap =
+  { tap
+    | label = case label of
+      Nothing -> tap.label
+      Just a -> a
+    , address = case address of
+      Nothing -> tap.address
+      Just a -> a
+    , portNumber = case portNumber of
+      Nothing -> tap.portNumber
+      Just a -> String.toInt a |> Result.withDefault -1
+  }
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -70,11 +72,11 @@ update msg model =
     NoOp ->
       model ! []
     NewTapLabel label ->
-      { model | newTap = updateTapLabel label model.newTap } ! []
+      { model | newTap = updateTap (Just label) Nothing Nothing model.newTap } ! []
     NewTapAddress address ->
-      { model | newTap = updateTapAddress address model.newTap } ! []
+      { model | newTap = updateTap Nothing (Just address) Nothing model.newTap } ! []
     NewTapPort portNumber ->
-      { model | newTap = updateTapPort portNumber model.newTap } ! []
+      { model | newTap = updateTap Nothing Nothing (Just portNumber) model.newTap } ! []
     CreateTap ->
       (model, createTap model.newTap)
     TapCreated (Ok tap)->
