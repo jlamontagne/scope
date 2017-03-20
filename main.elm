@@ -48,9 +48,14 @@ emptyModel =
     }
 
 
+fetchTaps : Cmd Msg
+fetchTaps =
+    Http.get "/taps" (Decode.list decodeTap) |> Http.send FetchedTaps
+
+
 init : (Model, Cmd Msg)
 init =
-    emptyModel ! []
+    emptyModel ! [ fetchTaps ]
 
 
 decodeTheThing : Decode.Decoder String
@@ -78,6 +83,7 @@ delete url =
         , withCredentials = False
         }
 
+
 type Msg
     = NoOp
     | NewTapLabel String
@@ -87,6 +93,7 @@ type Msg
     | TapCreated (Result Http.Error Tap)
     | RemoveTap Tap
     | TapRemoved Tap (Result Http.Error ())
+    | FetchedTaps (Result Http.Error (List Tap))
 
 
 update : Msg -> Model -> (Model, Cmd Msg)
@@ -182,6 +189,13 @@ update msg model =
         TapRemoved _ (Err _) ->
             model ! []
 
+        FetchedTaps (Ok taps) ->
+            { model | taps = taps }
+                ! []
+
+        FetchedTaps (Err _) ->
+            model ! []
+
 
 view : Model -> Html Msg
 view model =
@@ -192,6 +206,7 @@ view model =
         , viewTaps model
         ]
 
+
 viewTapRow : Tap -> Html Msg
 viewTapRow tap =
     tr
@@ -201,6 +216,7 @@ viewTapRow tap =
         , td [] [ text tap.label ]
         , td [] [ button [ onClick (RemoveTap tap) ] [ text "Remove Tap" ] ]
         ]
+
 
 viewTaps : Model -> Html Msg
 viewTaps model =
@@ -217,6 +233,7 @@ viewTaps model =
             []
             (List.map viewTapRow model.taps)
         ]
+
 
 viewCreateTap : Model -> Html Msg
 viewCreateTap model =
