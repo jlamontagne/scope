@@ -1,3 +1,5 @@
+-- FIXME:
+-- Input validation on create tap
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
@@ -22,6 +24,22 @@ type alias Tap =
     , id : Int
     , label : String
     , portNumber : Int
+    }
+
+
+type alias Response =
+    -- { headers : String
+    -- , payload : String
+    -- }
+    { payload : String
+    }
+
+
+type alias Route =
+    { method : String
+    , path : String
+    -- , pinned : Maybe Response
+    , responses : List Response
     }
 
 
@@ -53,6 +71,12 @@ fetchTaps =
     Http.get "/taps" (Decode.list decodeTap) |> Http.send FetchedTaps
 
 
+fetchRoutes : Tap -> Cmd Msg
+fetchRoutes tap =
+    Http.get ("/tap/" ++ (toString tap.id) ++ "/routes") (Decode.list decodeRoute)
+        |> Http.send (FetchedRoutes tap)
+
+
 init : (Model, Cmd Msg)
 init =
     emptyModel ! [ fetchTaps ]
@@ -61,6 +85,22 @@ init =
 decodeTheThing : Decode.Decoder String
 decodeTheThing =
     Decode.at ["derp"] Decode.string
+
+decodeResponse : Decode.Decoder Response
+decodeResponse =
+    -- Decode.map2 Response
+    --     (Decode.field "headers" Decode.string)
+    --     (Decode.field "payload" Decode.string)
+    Decode.map Response
+        (Decode.field "payload" Decode.string)
+
+decodeRoute : Decode.Decoder Route
+decodeRoute =
+    Decode.map3 Route
+        (Decode.field "method" Decode.string)
+        (Decode.field "path" Decode.string)
+        -- (Decode.field "pinned" (Decode.nullable decodeResponse))
+        (Decode.field "responses" (Decode.list decodeResponse))
 
 
 decodeTap : Decode.Decoder Tap
@@ -94,6 +134,7 @@ type Msg
     | RemoveTap Tap
     | TapRemoved Tap (Result Http.Error ())
     | FetchedTaps (Result Http.Error (List Tap))
+    | FetchedRoutes Tap (Result Http.Error (List Route))
 
 
 update : Msg -> Model -> (Model, Cmd Msg)
@@ -187,10 +228,18 @@ update msg model =
             model ! []
 
         FetchedTaps (Ok taps) ->
-            { model | taps = taps }
-                ! []
+            let
+                newModel = { model | taps = taps }
+            in
+                newModel ! List.map fetchRoutes newModel.taps
 
         FetchedTaps (Err _) ->
+            model ! []
+
+        FetchedRoutes tap (Ok routes) ->
+            model ! []
+
+        FetchedRoutes _ (Err _) ->
             model ! []
 
 
