@@ -147,9 +147,6 @@ update msg model =
         TapCreated (Ok tap) ->
             { model
                 | newTap = Just tap
-                , newTapLabel = Nothing
-                , newTapAddress = Nothing
-                , newTapPort = Nothing
                 , taps = tap :: model.taps
                 , error = Nothing
             }
