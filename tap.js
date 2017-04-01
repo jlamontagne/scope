@@ -58,6 +58,7 @@ class Tap {
     const key = routeKey(method, path);
     const route = new Route(method, path);
     this.routes[key] = route;
+    console.log(`[tap:${this.info.label}] created route: ${method} ${path}`);
     return route;
   }
 
