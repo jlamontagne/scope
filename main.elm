@@ -24,6 +24,7 @@ type alias Tap =
     , id : Int
     , label : String
     , portNumber : Int
+    , viewRoutes : Bool
     }
 
 
@@ -82,10 +83,6 @@ init =
     emptyModel ! [ fetchTaps ]
 
 
-decodeTheThing : Decode.Decoder String
-decodeTheThing =
-    Decode.at ["derp"] Decode.string
-
 decodeResponse : Decode.Decoder Response
 decodeResponse =
     -- Decode.map2 Response
@@ -105,11 +102,12 @@ decodeRoute =
 
 decodeTap : Decode.Decoder Tap
 decodeTap =
-    Decode.map4 Tap
+    Decode.map5 Tap
         (Decode.field "address" Decode.string)
         (Decode.field "id" Decode.int)
         (Decode.field "label" Decode.string)
         (Decode.field "port" Decode.int)
+        (Decode.succeed False)
 
 delete : String -> Http.Request ()
 delete url =
@@ -135,6 +133,7 @@ type Msg
     | TapRemoved Tap (Result Http.Error ())
     | FetchedTaps (Result Http.Error (List Tap))
     | FetchedRoutes Tap (Result Http.Error (List Route))
+    | ToggleRoutes Tap
 
 
 update : Msg -> Model -> (Model, Cmd Msg)
@@ -228,10 +227,8 @@ update msg model =
             model ! []
 
         FetchedTaps (Ok taps) ->
-            let
-                newModel = { model | taps = taps }
-            in
-                newModel ! List.map fetchRoutes newModel.taps
+            { model | taps = taps}
+                ! List.map fetchRoutes taps
 
         FetchedTaps (Err _) ->
             model ! []
@@ -241,6 +238,18 @@ update msg model =
 
         FetchedRoutes _ (Err _) ->
             model ! []
+
+        ToggleRoutes viewTap ->
+            { model
+                | taps = List.map (\tap ->
+                    if tap.id == viewTap.id then
+                       { tap | viewRoutes = not tap.viewRoutes }
+                    else
+                        tap
+                ) model.taps
+            }
+                ! [ fetchRoutes viewTap ]
+
 
 
 view : Model -> Html Msg
@@ -260,7 +269,9 @@ viewTapRow tap =
         [ td [] [ text tap.address ]
         , td [] [ text <| toString tap.portNumber ]
         , td [] [ text tap.label ]
-        , td [] [ button [ onClick (RemoveTap tap) ] [ text "Remove Tap" ] ]
+        , td [] [ button [ onClick (RemoveTap tap) ] [ text "Remove Tap" ]
+                , button [ onClick (ToggleRoutes tap) ] [ text "Toggle Routes" ]
+                ]
         ]
 
 
