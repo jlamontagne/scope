@@ -29,17 +29,15 @@ type alias Tap =
 
 
 type alias Response =
-    -- { headers : String
-    -- , payload : String
-    -- }
-    { payload : String
+    { headers : String
+    , payload : String
     }
 
 
 type alias Route =
     { method : String
     , path : String
-    -- , pinned : Maybe Response
+    , pinned : Maybe Response
     , responses : List Response
     }
 
@@ -85,18 +83,16 @@ init =
 
 decodeResponse : Decode.Decoder Response
 decodeResponse =
-    -- Decode.map2 Response
-    --     (Decode.field "headers" Decode.string)
-    --     (Decode.field "payload" Decode.string)
-    Decode.map Response
+    Decode.map2 Response
+        (Decode.field "headers" Decode.string)
         (Decode.field "payload" Decode.string)
 
 decodeRoute : Decode.Decoder Route
 decodeRoute =
-    Decode.map3 Route
+    Decode.map4 Route
         (Decode.field "method" Decode.string)
         (Decode.field "path" Decode.string)
-        -- (Decode.field "pinned" (Decode.nullable decodeResponse))
+        (Decode.field "pinned" (Decode.nullable decodeResponse))
         (Decode.field "responses" (Decode.list decodeResponse))
 
 
