@@ -23,7 +23,7 @@ class Tap {
 
     let tls;
 
-    if (parts.protocol === 'https') {
+    if (parts.protocol.includes('https')) {
       tls = {
         key: fs.readFileSync('.key.pem'),
         cert: fs.readFileSync('.cert.pem'),
@@ -164,7 +164,15 @@ class Tap {
       });
     })
     .then(() => this.server.start())
+    .then(() => this.logStarted())
     .then(() => this);
+  }
+
+  logStarted() {
+    const conn = this.server.info;
+    const addr = `${conn.protocol}://${conn.address}:${conn.port}`;
+    const label = this.info.label;
+    console.log(`[tap:${label}] created: ${addr} -> ${this.info.address}`);
   }
 }
 
