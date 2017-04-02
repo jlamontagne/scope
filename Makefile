@@ -11,7 +11,7 @@ build: public/index.html
 
 public/index.html: main.elm
 	@[ -d $(dir $@) ] || (mkdir -p $(dir $@))
-	@$$(npm bin)/elm-make main.elm --output=public/index.html
+	@$$(npm bin)/elm-make main.elm --debug --output=public/index.html
 
 serve:
 	@npm start

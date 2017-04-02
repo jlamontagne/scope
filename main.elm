@@ -1,5 +1,6 @@
 -- FIXME:
 -- Input validation on create tap
+import Debug exposing (..)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
@@ -24,14 +25,16 @@ type alias Tap =
     , id : Int
     , label : String
     , portNumber : Int
+    , routes : List Route
     , viewRoutes : Bool
     }
 
 
 type alias Response =
-    { headers : String
-    , payload : String
-    }
+    -- { headers : String
+    -- , payload : String
+    -- }
+    { payload : String }
 
 
 type alias Route =
@@ -83,8 +86,8 @@ init =
 
 decodeResponse : Decode.Decoder Response
 decodeResponse =
-    Decode.map2 Response
-        (Decode.field "headers" Decode.string)
+    Decode.map Response
+        -- (Decode.field "headers" Decode.string)
         (Decode.field "payload" Decode.string)
 
 decodeRoute : Decode.Decoder Route
@@ -98,11 +101,12 @@ decodeRoute =
 
 decodeTap : Decode.Decoder Tap
 decodeTap =
-    Decode.map5 Tap
+    Decode.map6 Tap
         (Decode.field "address" Decode.string)
         (Decode.field "id" Decode.int)
         (Decode.field "label" Decode.string)
         (Decode.field "port" Decode.int)
+        (Decode.succeed [])
         (Decode.succeed False)
 
 delete : String -> Http.Request ()
@@ -229,8 +233,16 @@ update msg model =
         FetchedTaps (Err _) ->
             model ! []
 
-        FetchedRoutes tap (Ok routes) ->
-            model ! []
+        FetchedRoutes updateTap (Ok routes) ->
+            { model
+                | taps = List.map (\tap ->
+                    if tap.id == updateTap.id then
+                        { tap | routes = routes }
+                    else
+                        tap
+                ) model.taps
+            }
+                ! []
 
         FetchedRoutes _ (Err _) ->
             model ! []
@@ -257,35 +269,41 @@ view model =
         , viewTaps model
         ]
 
-
-viewTapRow : Tap -> Html Msg
-viewTapRow tap =
-    tr
+viewRoute : Route -> Html Msg
+viewRoute route =
+    div
         []
-        [ td [] [ text tap.address ]
-        , td [] [ text <| toString tap.portNumber ]
-        , td [] [ text tap.label ]
-        , td [] [ button [ onClick (RemoveTap tap) ] [ text "Remove Tap" ]
-                , button [ onClick (ToggleRoutes tap) ] [ text "Toggle Routes" ]
-                ]
+        [ div [] [ text route.method, text " ", text route.path ] ]
+
+viewRoutes : Tap -> Html Msg
+viewRoutes tap =
+    if tap.viewRoutes then
+        div []
+            [ text "Routes: "
+            , div [] (List.map viewRoute tap.routes)
+            ]
+    else
+        div [] []
+
+
+viewTap : Tap -> Html Msg
+viewTap tap =
+    li
+        []
+        [ div [] [ text "Backing address: ", text tap.address ]
+        , div [] [ text "Proxy port: ", text <| toString tap.portNumber ]
+        , div [] [ text "Label: ", text tap.label ]
+        , button [ onClick (RemoveTap tap) ] [ text "Remove Tap" ]
+        , button [ onClick (ToggleRoutes tap) ] [ text "Toggle Routes" ]
+        , viewRoutes tap
         ]
 
 
 viewTaps : Model -> Html Msg
 viewTaps model =
-    table
+    ul
         []
-        [ thead
-            []
-            [ th [] [ text "Proxy address" ]
-            , th [] [ text "Scope port" ]
-            , th [] [ text "Label" ]
-            , th [] [ text "Actions" ]
-            ]
-        , tbody
-            []
-            (List.map viewTapRow model.taps)
-        ]
+        (List.map viewTap model.taps)
 
 
 viewCreateTap : Model -> Html Msg
