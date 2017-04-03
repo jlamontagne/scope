@@ -1,6 +1,7 @@
 -- FIXME:
 -- Input validation on create tap
 import Debug exposing (..)
+import Dict
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
@@ -29,12 +30,12 @@ type alias Tap =
     , viewRoutes : Bool
     }
 
+type Header = SingleHeader String |  MultiHeader (List String)
 
 type alias Response =
-    -- { headers : String
-    -- , payload : String
-    -- }
-    { payload : String }
+    { headers : Dict.Dict String Header
+    , payload : String
+    }
 
 
 type alias Route =
@@ -83,11 +84,22 @@ init : (Model, Cmd Msg)
 init =
     emptyModel ! [ fetchTaps ]
 
+decodeSingleHeader : Decode.Decoder Header
+decodeSingleHeader =
+    Decode.map SingleHeader Decode.string
+
+decodeMultiHeader : Decode.Decoder Header
+decodeMultiHeader =
+    Decode.map MultiHeader (Decode.list Decode.string)
+
+decodeHeader : Decode.Decoder Header
+decodeHeader =
+    Decode.oneOf [ decodeSingleHeader, decodeMultiHeader ]
 
 decodeResponse : Decode.Decoder Response
 decodeResponse =
-    Decode.map Response
-        -- (Decode.field "headers" Decode.string)
+    Decode.map2 Response
+        (Decode.field "headers" (Decode.dict decodeHeader))
         (Decode.field "payload" Decode.string)
 
 decodeRoute : Decode.Decoder Route
@@ -269,11 +281,19 @@ view model =
         , viewTaps model
         ]
 
+viewResponse : Response -> Html Msg
+viewResponse response =
+    textarea
+        [ cols 40, rows 5 ]
+        [ text response.payload ]
+
 viewRoute : Route -> Html Msg
 viewRoute route =
     div
         []
-        [ div [] [ text route.method, text " ", text route.path ] ]
+        [ div [] [ text route.method, text " ", text route.path ]
+        , div [] (List.map viewResponse route.responses)
+        ]
 
 viewRoutes : Tap -> Html Msg
 viewRoutes tap =
