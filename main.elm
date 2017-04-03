@@ -121,6 +121,18 @@ decodeTap =
         (Decode.succeed [])
         (Decode.succeed False)
 
+encodeHeader : (String, Header) -> (String, Encode.Value)
+encodeHeader (name, header) =
+    case header of
+        SingleHeader singleHeader ->
+            (name, Encode.string singleHeader)
+        MultiHeader multiHeader ->
+            (name, List.map Encode.string multiHeader |> Encode.list)
+
+encodeHeaders : List (String, Header) -> Encode.Value
+encodeHeaders headers =
+    List.map encodeHeader headers |> Encode.object
+
 delete : String -> Http.Request ()
 delete url =
     Http.request
@@ -146,6 +158,8 @@ type Msg
     | FetchedTaps (Result Http.Error (List Tap))
     | FetchedRoutes Tap (Result Http.Error (List Route))
     | ToggleRoutes Tap
+    | PinResponse Tap Route Response
+    | ResponsePinned (Result Http.Error Int)
 
 
 update : Msg -> Model -> (Model, Cmd Msg)
@@ -270,6 +284,30 @@ update msg model =
             }
                 ! [ fetchRoutes viewTap ]
 
+        PinResponse tap route response ->
+            let
+                encodedResponse = Encode.object
+                    [ ("headers", (Dict.toList response.headers) |> encodeHeaders)
+                    , ("payload", Encode.string response.payload)
+                    ]
+
+                body =
+                    Http.jsonBody <| Encode.object
+                        [ ("method", Encode.string route.method)
+                        , ("path", Encode.string route.path)
+                        , ("response", encodedResponse)
+                        ]
+
+                request =
+                    Http.post ("/tap/" ++ toString tap.id ++ "/pinned") body (Decode.succeed 0)
+            in
+                (model, Http.send ResponsePinned request)
+
+        ResponsePinned (Ok _) ->
+            model ! []
+
+        ResponsePinned (Err _) ->
+            model ! []
 
 
 view : Model -> Html Msg
@@ -281,18 +319,20 @@ view model =
         , viewTaps model
         ]
 
-viewResponse : Response -> Html Msg
-viewResponse response =
-    textarea
-        [ cols 40, rows 5 ]
-        [ text response.payload ]
+viewResponse : Tap -> Route -> Response -> Html Msg
+viewResponse tap route response =
+    div
+        []
+        [ textarea [ cols 40, rows 5 ] [ text response.payload ]
+        , button [ onClick (PinResponse tap route response) ] [ text "Pin this response" ]
+        ]
 
-viewRoute : Route -> Html Msg
-viewRoute route =
+viewRoute : Tap -> Route -> Html Msg
+viewRoute tap route =
     div
         []
         [ div [] [ text route.method, text " ", text route.path ]
-        , div [] (List.map viewResponse route.responses)
+        , div [] (List.map (viewResponse tap route) route.responses)
         ]
 
 viewRoutes : Tap -> Html Msg
@@ -300,7 +340,7 @@ viewRoutes tap =
     if tap.viewRoutes then
         div []
             [ text "Routes: "
-            , div [] (List.map viewRoute tap.routes)
+            , div [] (List.map (viewRoute tap) tap.routes)
             ]
     else
         div [] []
